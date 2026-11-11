@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Open Tower - An open-world tower defense game with resource management, worker systems, and strategic building placement.">
+    <title>Open Tower — Open World Tower Defense</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- ===== IN-GAME HUD ===== -->
+    <div id="uiRoot" class="hidden">
+        <!-- Top bar -->
+        <div id="topBar" class="ui-block">
+            <div id="resourceChips"></div>
+            <div id="topRight">
+                <div class="chip clickable" id="workerChip" title="Click: select all idle workers">
+                    <span id="workerChipText">0/0</span>
+                </div>
+                <div id="speedControls">
+                    <button class="speed-btn" data-speed="0" title="Pause game speed [P]">II</button>
+                    <button class="speed-btn active" data-speed="1">1&times;</button>
+                    <button class="speed-btn" data-speed="2">2&times;</button>
+                    <button class="speed-btn" data-speed="3">3&times;</button>
+                </div>
+                <button id="btnHelpInGame" class="icon-btn" title="Controls [H]">?</button>
+                <button id="btnMenuInGame" class="icon-btn" title="Menu [Esc]">&equiv;</button>
+            </div>
+        </div>
+
+        <!-- Right stack: minimap + wave panel -->
+        <div id="rightStack" class="ui-block">
+            <div id="minimapPanel">
+                <canvas id="minimapCanvas" width="192" height="192"></canvas>
+            </div>
+            <div id="wavePanel">
+                <div class="panel-title" id="wavePanelTitle">NEXT WAVE</div>
+                <div id="waveComposition" class="wave-comp"></div>
+                <button id="btnStartWave" class="wave-start-btn">CALL WAVE <span class="bonus">+bonus</span></button>
+            </div>
+        </div>
+
+        <!-- Selection panel -->
+        <div id="selectionPanel" class="ui-block hidden">
+            <div class="sel-header">
+                <span id="selIcon" class="sel-icon"></span>
+                <div class="sel-titles">
+                    <div id="selName" class="sel-name"></div>
+                    <div id="selSub" class="sel-sub"></div>
+                </div>
+                <button id="selClose" class="icon-btn small">&times;</button>
+            </div>
+            <div id="selHpRow" class="sel-hp-row">
+                <div class="hp-bar"><div id="selHpFill" class="hp-fill"></div></div>
+                <span id="selHpText" class="hp-text"></span>
+            </div>
+            <div id="selStats" class="sel-stats"></div>
+            <div id="selActions" class="sel-actions"></div>
+        </div>
+
+        <!-- Build dock -->
+        <div id="buildDock" class="ui-block">
+            <div id="buildTabs"></div>
+            <div id="buildCards"></div>
+        </div>
+
+        <!-- Wire mode bar -->
+        <div id="wireBar" class="ui-block hidden">
+            <span class="wire-title">WIRE MODE</span>
+            <div id="wireTypes"></div>
+            <span class="wire-hint">Drag: place &middot; Right-drag: remove</span>
+            <button id="btnExitWire" class="menu-btn tiny">EXIT [V]</button>
+        </div>
+
+        <!-- Hover tooltip -->
+        <div id="tooltip" class="hidden"></div>
+    </div>
+
+    <!-- ===== MAIN MENU ===== -->
+    <div id="mainMenu" class="overlay active">
+        <div class="menu-bg-effects">
+            <div class="grid-line-h"></div>
+            <div class="grid-line-v"></div>
+            <div class="scan-line"></div>
+        </div>
+        <div class="menu-container">
+            <h1 class="game-title">
+                <span class="title-line">OPEN</span>
+                <span class="title-line accent">TOWER</span>
+            </h1>
+            <p class="subtitle">OPEN WORLD TOWER DEFENSE</p>
+            <div class="menu-buttons">
+                <button id="btnCampaign" class="menu-btn primary">
+                    <span class="btn-text">CAMPAIGN</span>
+                    <span class="btn-sub" id="campaignProgress">30 Levels &middot; 5 Chapters</span>
+                </button>
+                <button id="btnInfinite" class="menu-btn">
+                    <span class="btn-text">INFINITE MODE</span>
+                    <span class="btn-sub" id="infiniteBest">Endless Waves</span>
+                </button>
+                <button id="btnLoadGame" class="menu-btn">
+                    <span class="btn-text">CONTINUE</span>
+                    <span class="btn-sub" id="saveInfo">No saved game</span>
+                </button>
+                <button id="btnSettings" class="menu-btn small">
+                    <span class="btn-text">SETTINGS</span>
+                </button>
+            </div>
+            <div class="menu-footer">
+                <span class="keybind-hint">Press <kbd>H</kbd> for controls</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== PAUSE MENU ===== -->
+    <div id="pauseMenu" class="overlay">
+        <div class="pause-container">
+            <h2 class="pause-title">PAUSED</h2>
+            <div class="menu-buttons">
+                <button id="btnResume" class="menu-btn primary">
+                    <span class="btn-text">RESUME</span>
+                </button>
+                <button id="btnSave" class="menu-btn">
+                    <span class="btn-text">SAVE GAME</span>
+                </button>
+                <button id="btnPauseSettings" class="menu-btn">
+                    <span class="btn-text">SETTINGS</span>
+                </button>
+                <button id="btnPauseHelp" class="menu-btn">
+                    <span class="btn-text">CONTROLS</span>
+                </button>
+                <button id="btnQuit" class="menu-btn danger">
+                    <span class="btn-text">QUIT TO MENU</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== VICTORY ===== -->
+    <div id="victoryMenu" class="overlay">
+        <div class="gameover-container victory-container">
+            <h2 class="victory-title">VICTORY</h2>
+            <div id="victoryStars" class="victory-stars">
+                <span class="star">&#9733;</span><span class="star">&#9733;</span><span class="star">&#9733;</span>
+            </div>
+            <p id="victoryStats" class="gameover-stats"></p>
+            <div class="menu-buttons">
+                <button id="btnNextLevel" class="menu-btn primary">
+                    <span class="btn-text">NEXT LEVEL</span>
+                </button>
+                <button id="btnReplayLevel" class="menu-btn">
+                    <span class="btn-text">REPLAY</span>
+                </button>
+                <button id="btnVictoryMenu" class="menu-btn">
+                    <span class="btn-text">MAIN MENU</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== GAME OVER ===== -->
+    <div id="gameOverMenu" class="overlay">
+        <div class="gameover-container">
+            <h2 class="gameover-title">BASE DESTROYED</h2>
+            <p id="gameOverStats" class="gameover-stats"></p>
+            <div class="menu-buttons">
+                <button id="btnRetry" class="menu-btn primary">
+                    <span class="btn-text">RETRY</span>
+                </button>
+                <button id="btnMainMenu" class="menu-btn">
+                    <span class="btn-text">MAIN MENU</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== LEVEL SELECT ===== -->
+    <div id="levelSelect" class="overlay">
+        <div class="level-container">
+            <h2 class="level-title">SELECT LEVEL</h2>
+            <div id="chapterTabs" class="chapter-tabs"></div>
+            <div id="levelGrid" class="level-grid"></div>
+            <button id="btnBackFromLevels" class="menu-btn small back-btn">
+                <span class="btn-text">BACK</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ===== SETTINGS ===== -->
+    <div id="settingsMenu" class="overlay">
+        <div class="settings-container">
+            <h2 class="pause-title">SETTINGS</h2>
+            <div class="settings-rows">
+                <div class="setting-row">
+                    <span class="setting-label">Sound</span>
+                    <label class="toggle"><input type="checkbox" id="setSound" checked><span class="slider"></span></label>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Volume</span>
+                    <input type="range" id="setVolume" min="0" max="100" value="50" class="range">
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Screen shake</span>
+                    <label class="toggle"><input type="checkbox" id="setShake" checked><span class="slider"></span></label>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Floating numbers</span>
+                    <label class="toggle"><input type="checkbox" id="setFloatText" checked><span class="slider"></span></label>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Campaign progress</span>
+                    <button id="btnResetProgress" class="menu-btn tiny danger">RESET</button>
+                </div>
+            </div>
+            <button id="btnCloseSettings" class="menu-btn small">
+                <span class="btn-text">CLOSE</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ===== CONTROLS / HELP ===== -->
+    <div id="keybindsOverlay" class="overlay">
+        <div class="keybinds-container">
+            <h2 class="keybinds-title">CONTROLS</h2>
+            <div class="keybinds-grid">
+                <div class="keybind-section">
+                    <h3>Camera</h3>
+                    <div class="kb"><kbd>W A S D</kbd> Pan camera</div>
+                    <div class="kb"><kbd>Scroll</kbd> Zoom to cursor</div>
+                    <div class="kb"><kbd>Middle Drag</kbd> Pan camera</div>
+                    <div class="kb"><kbd>F</kbd> Focus on base</div>
+                </div>
+                <div class="keybind-section">
+                    <h3>Building</h3>
+                    <div class="kb"><kbd>B</kbd> Toggle build dock</div>
+                    <div class="kb"><kbd>1-9</kbd> Quick-select building</div>
+                    <div class="kb"><kbd>Shift</kbd> Keep placing</div>
+                    <div class="kb"><kbd>Drag</kbd> Place wall lines</div>
+                    <div class="kb"><kbd>Del</kbd> Sell selected</div>
+                    <div class="kb"><kbd>V</kbd> Wire mode</div>
+                </div>
+                <div class="keybind-section">
+                    <h3>Game</h3>
+                    <div class="kb"><kbd>Space</kbd> Call wave early</div>
+                    <div class="kb"><kbd>P</kbd> Pause game speed</div>
+                    <div class="kb"><kbd>+ / -</kbd> Game speed</div>
+                    <div class="kb"><kbd>U</kbd> Upgrade selected</div>
+                    <div class="kb"><kbd>Tab</kbd> Cycle buildings</div>
+                    <div class="kb"><kbd>Esc</kbd> Pause / Cancel</div>
+                </div>
+                <div class="keybind-section">
+                    <h3>Workers</h3>
+                    <div class="kb"><kbd>Left Click</kbd> Select / Place</div>
+                    <div class="kb"><kbd>Drag</kbd> Box-select workers</div>
+                    <div class="kb"><kbd>Right Click</kbd> Command workers</div>
+                    <div class="kb"><kbd>Shift+RClick</kbd> Queue command</div>
+                    <div class="kb"><kbd>Ctrl+A</kbd> Select all workers</div>
+                    <div class="kb"><kbd>G</kbd> Toggle grid</div>
+                </div>
+            </div>
+            <p class="help-tip">Workers auto-harvest nearby resources and carry them back to the base. Right-click a damaged building to repair it, or an unfinished one to help build it.</p>
+            <button id="btnCloseKeybinds" class="menu-btn small">
+                <span class="btn-text">CLOSE</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Wave announcement -->
+    <div id="waveAnnounce" class="wave-announce">
+        <span class="wave-text">WAVE <span id="waveNum">1</span></span>
+        <span class="wave-sub" id="waveSub">Incoming!</span>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
